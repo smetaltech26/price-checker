@@ -343,7 +343,7 @@ function setupEventListeners() {
 function switchTab(tab) {
   currentTab = tab;
   
-  // หยุดกล้องสแกนทันทีเมื่อย้ายไปแถบคืนหา
+  // หยุดกล้องสแกนทันทีเมื่อย้ายไปแถบค้นหา
   if (tab === 'search' && currentScanner) {
     stopScanning();
   }
@@ -353,11 +353,22 @@ function switchTab(tab) {
     elements.tabSearch.className = "flex-1 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-all duration-300 text-gray-400 hover:text-white";
     elements.panelScanner.classList.remove('hidden');
     elements.panelSearch.classList.add('hidden');
+    
+    // จัดการ emptyState ในแท็บสแกน (ถ้าไม่มีการ์ดสินค้า ให้แสดง)
+    if (elements.productDetailCard.classList.contains('hidden')) {
+      elements.emptyState.classList.remove('hidden');
+    } else {
+      elements.emptyState.classList.add('hidden');
+    }
   } else {
     elements.tabScanner.className = "flex-1 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-all duration-300 text-gray-400 hover:text-white";
     elements.tabSearch.className = "flex-1 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-all duration-300 text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 shadow-sm";
     elements.panelScanner.classList.add('hidden');
     elements.panelSearch.classList.remove('hidden');
+    
+    // ซ่อน emptyState เสมอในแท็บค้นหา เพื่อไม่ให้เกะกะ list รายการสินค้าที่กำลังค้นหา
+    elements.emptyState.classList.add('hidden');
+    
     setTimeout(() => elements.searchInput.focus(), 100);
   }
 }
@@ -370,50 +381,7 @@ function startScanning() {
   elements.btnStartScan.classList.add('hidden');
   elements.btnStopScan.classList.remove('hidden');
   
-  // 1. ดึงรายการกล้องที่ใช้งานได้
-  Html5Qrcode.getCameras().then(cameras => {
-    if (cameras && cameras.length > 0) {
-      // ถ้ามีมากกว่า 1 กล้อง แสดง dropdown ให้เปลี่ยนกล้อง
-      if (cameras.length > 1) {
-        elements.cameraSelectContainer.classList.remove('hidden');
-        elements.cameraSelect.innerHTML = '';
-        cameras.forEach(cam => {
-          const option = document.createElement('option');
-          option.value = cam.id;
-          option.text = cam.label || `กล้องที่ ${elements.cameraSelect.length + 1}`;
-          
-          // เลือกกล้องหลัง (Back Camera) เป็นอันดับแรกโดยอัตโนมัติ
-          const labelLower = (cam.label || '').toLowerCase();
-          if (labelLower.includes('back') || labelLower.includes('rear') || labelLower.includes('environment')) {
-            option.selected = true;
-            selectedCameraId = cam.id;
-          }
-          
-          elements.cameraSelect.appendChild(option);
-        });
-        
-        // ถ้าไม่มีกล้องหลังเป็นค่าดีฟอลต์ ให้เลือกตัวแรก
-        if (!selectedCameraId) {
-          selectedCameraId = cameras[0].id;
-        }
-      } else {
-        selectedCameraId = cameras[0].id;
-        elements.cameraSelectContainer.classList.add('hidden');
-      }
-      
-      // 2. สั่งเริ่มกล้อง
-      runScanner(selectedCameraId);
-    } else {
-      throw new Error('ไม่พบกล้องสแกนที่ทำงานได้ค่ะ');
-    }
-  }).catch(err => {
-    alert("การเปิดกล้องขัดข้อง: " + err.message);
-    resetScannerUI();
-  });
-}
-
-function runScanner(cameraId) {
-  // สร้างอินสแตนซ์สแกนเนอร์ใหม่
+  // 1. สร้างอินสแตนซ์สแกนเนอร์ใหม่
   currentScanner = new Html5Qrcode("reader");
   
   // กำหนดขนาด QR box ที่เหมาะสมแบบ Responsive
@@ -426,8 +394,9 @@ function runScanner(cameraId) {
     };
   };
 
+  // 2. สั่งเริ่มกล้องหลังทันที (facingMode: "environment")
   currentScanner.start(
-    cameraId,
+    { facingMode: "environment" },
     {
       fps: 15,
       qrbox: qrboxFunction,
@@ -437,19 +406,9 @@ function runScanner(cameraId) {
     onScanError
   ).catch(err => {
     console.error("เริ่มสแกนเนอร์ล้มเหลว:", err);
-    alert("ไม่สามารถรับฟีดภาพกล้องได้ กรุณาให้สิทธิ์การใช้งานกล้องกับบราวเซอร์นะคะ");
+    alert("ไม่สามารถเข้าใช้งานกล้องหลังได้ กรุณาให้สิทธิ์เข้าถึงกล้องสำหรับเบราว์เซอร์ในการตั้งค่าระบบของโทรศัพท์นะคะ");
     resetScannerUI();
   });
-}
-
-function restartScanner() {
-  if (currentScanner) {
-    currentScanner.stop().then(() => {
-      runScanner(selectedCameraId);
-    }).catch(err => {
-      console.error("รีสตาร์ทกล้องล้มเหลว:", err);
-    });
-  }
 }
 
 function stopScanning() {
@@ -657,7 +616,9 @@ function displayProductDetail(itemCode) {
   } else {
     // ไม่พบสินค้า
     elements.productDetailCard.classList.add('hidden');
-    elements.emptyState.classList.remove('hidden');
+    if (currentTab === 'scanner') {
+      elements.emptyState.classList.remove('hidden');
+    }
     
     alert(`ไม่พบข้อมูลสินค้ารหัส "${itemCode}" ในฐานข้อมูลค่ะ 😢\nกรุณาตรวจสอบว่ามีสินค้านี้ใน Google Sheets หรือยังนะคะ`);
   }
@@ -665,7 +626,9 @@ function displayProductDetail(itemCode) {
 
 function closeProductCard() {
   elements.productDetailCard.classList.add('hidden');
-  elements.emptyState.classList.remove('hidden');
+  if (currentTab === 'scanner') {
+    elements.emptyState.classList.remove('hidden');
+  }
 }
 
 // --- HELPER FUNCTIONS ---
