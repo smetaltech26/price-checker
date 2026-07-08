@@ -33,6 +33,7 @@ const elements = {
   panelScanner: document.getElementById('panelScanner'),
   panelSearch: document.getElementById('panelSearch'),
   
+  scannerWrapper: document.getElementById('scannerWrapper'),
   scannerPlaceholder: document.getElementById('scannerPlaceholder'),
   scannerOverlay: document.getElementById('scannerOverlay'),
   cameraSelectContainer: document.getElementById('cameraSelectContainer'),
@@ -363,6 +364,7 @@ function switchTab(tab) {
 
 // --- QR CODE SCANNER CONTROLLER ---
 function startScanning() {
+  elements.scannerWrapper.classList.remove('hidden');
   elements.scannerPlaceholder.classList.add('hidden');
   elements.scannerOverlay.classList.remove('hidden');
   elements.btnStartScan.classList.add('hidden');
@@ -465,6 +467,7 @@ function stopScanning() {
 }
 
 function resetScannerUI() {
+  elements.scannerWrapper.classList.add('hidden');
   elements.scannerPlaceholder.classList.remove('hidden');
   elements.scannerOverlay.classList.add('hidden');
   elements.btnStartScan.classList.remove('hidden');
